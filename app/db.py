@@ -3,10 +3,11 @@ from cryptography.hazmat.primitives import serialization
 
 DB_NAME = "totally_not_my_privateKeys.db"
 
+
 def initialize_db():
     connection = sqlite3.connect(DB_NAME)
     cursor = connection.cursor()
-    cursor.execute(''' 
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS keys (
             kid INTEGER PRIMARY KEY AUTOINCREMENT,
             key BLOB NOT NULL,
@@ -15,6 +16,7 @@ def initialize_db():
     ''')
     connection.commit()
     connection.close()
+
 
 def save_private_key(private_key, exp):
     pem_key = private_key.private_bytes(
@@ -28,18 +30,28 @@ def save_private_key(private_key, exp):
     connection.commit()
     connection.close()
 
+
 def fetch_key(expired=False):
     import datetime
-    from cryptography.hazmat.primitives.serialization import load_pem_private_key
+    from cryptography.hazmat.primitives.serialization \
+        import load_pem_private_key
 
     now = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
     connection = sqlite3.connect(DB_NAME)
     cursor = connection.cursor()
 
     if expired:
-        cursor.execute("SELECT kid, key FROM keys WHERE exp < ? ORDER BY exp DESC LIMIT 1", (now,))
+        cursor.execute(
+            "SELECT kid, key FROM keys WHERE exp < ? "
+            "ORDER BY exp DESC LIMIT 1",
+            (now,)
+        )
+
     else:
-        cursor.execute("SELECT kid, key FROM keys WHERE exp > ? ORDER BY exp ASC LIMIT 1", (now,))
+        cursor.execute(
+            "SELECT kid, key FROM keys WHERE exp > ? ORDER BY exp ASC LIMIT 1",
+            (now,)
+        )
 
     row = cursor.fetchone()
     connection.close()

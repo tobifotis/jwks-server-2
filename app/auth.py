@@ -8,16 +8,19 @@ from cryptography.hazmat.primitives import serialization
 
 auth_bp = Blueprint('auth', __name__)
 
+
 @auth_bp.route('/generate-keys', methods=['POST'])
 def generate_keys():
     now = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
     valid_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    expired_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    expired_key = (rsa.generate_private_key
+                   (public_exponent=65537, key_size=2048))
 
-    save_private_key(valid_key, now + 3600)      # Valid 1 hour
-    save_private_key(expired_key, now - 3600)    # Expired 1 hour ago
+    save_private_key(valid_key, now + 3600)  # Valid 1 hour
+    save_private_key(expired_key, now - 3600)  # Expired 1 hour ago
 
     return jsonify({"message": "Keys generated"}), 201
+
 
 @auth_bp.route('/auth', methods=['POST'])
 def authenticate():
@@ -31,11 +34,23 @@ def authenticate():
     payload = {
         'sub': data['username'],
         'iat': datetime.datetime.now(datetime.timezone.utc),
-        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=30) if not expired else datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=30)
+        'exp': (
+            datetime.datetime.now(datetime.timezone.utc) +
+            datetime.timedelta(minutes=30)
+            if not expired
+            else datetime.datetime.now(datetime.timezone.utc) -
+            datetime.timedelta(minutes=30)
+        )
     }
 
-    token = jwt.encode(payload, private_key, algorithm='RS256', headers={'kid': str(kid)})
+    token = jwt.encode(
+        payload,
+        private_key,
+        algorithm='RS256',
+        headers={'kid': str(kid)}
+    )
     return jsonify({'token': token})
+
 
 @auth_bp.route('/.well-known/jwks.json', methods=['GET'])
 def get_jwks():
@@ -49,12 +64,24 @@ def get_jwks():
     cursor.execute("SELECT kid, key FROM keys WHERE exp > ?", (now,))
 
     for kid, pem_key in cursor.fetchall():
-        private_key = serialization.load_pem_private_key(pem_key, password=None)
+        private_key = serialization.load_pem_private_key(
+            pem_key,
+            password=None
+        )
         public_key = private_key.public_key()
         public_numbers = public_key.public_numbers()
 
-        n = base64.urlsafe_b64encode(public_numbers.n.to_bytes((public_numbers.n.bit_length() + 7) // 8, 'big')).decode('utf-8').rstrip('=')
-        e = base64.urlsafe_b64encode(public_numbers.e.to_bytes((public_numbers.e.bit_length() + 7) // 8, 'big')).decode('utf-8').rstrip('=')
+        n = base64.urlsafe_b64encode(
+            public_numbers.n.to_bytes(
+                (public_numbers.n.bit_length() + 7) // 8, 'big'
+            )
+        ).decode('utf-8').rstrip('=')
+
+        e = base64.urlsafe_b64encode(
+            public_numbers.e.to_bytes(
+                (public_numbers.e.bit_length() + 7) // 8, 'big'
+            )
+        ).decode('utf-8').rstrip('=')
 
         keys.append({
             "kid": str(kid),
