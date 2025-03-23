@@ -1,0 +1,4 @@
+Flask
+cryptography
+PyJWT
+pytest     # For testing
